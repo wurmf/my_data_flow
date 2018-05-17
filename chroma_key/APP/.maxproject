@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<maxCompilerManager version="2">
+<enginePart internalEngineSubproject="chroma_key_EngineCode" isSrcBin="false" isUseDefaultSelected="false" outputLocation="/chroma_key_EngineCode/bin" projectName="chroma_key"/>
+<cpuPart internalCpuSubproject="chroma_key_CPUCode"/>
+<watchedFiles/>
+</maxCompilerManager>

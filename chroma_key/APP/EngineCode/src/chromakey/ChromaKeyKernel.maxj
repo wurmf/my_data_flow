@@ -1,0 +1,69 @@
+package chromakey;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEFloat;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEFix;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;
+
+class ChromaKeyKernel extends Kernel {
+
+	protected ChromaKeyKernel(KernelParameters parameters) {
+		super(parameters);
+
+		DFEFloat floatType = dfeFloat(8, 24); 
+		DFEFix intType8 = dfeUInt(8);
+		DFEFix intType32 = dfeUInt(32);
+
+		
+		DFEVar key_cb = io.scalarInput("a", intType32);
+		DFEVar key_cr = io.scalarInput("b", intType32);
+		DFEVar tol_a = io.scalarInput("c", floatType);
+		DFEVar tol_b = io.scalarInput("d", floatType);
+
+		DFEVar in_image = io.input("x", intType8);
+		DFEVar bg_image = io.input("y", intType8);
+		
+		
+		DFEVar count = control.count.simpleCounter(2,3);
+		
+		DFEVar r = in_image;
+		DFEVar g = stream.offset(in_image, 1);
+		DFEVar b = stream.offset(in_image, 2);
+		
+		DFEVar onSecondPosition = (count > 0 & count < 2);
+		DFEVar onThirdPosition = (count > 1);
+		
+		r = onSecondPosition ? stream.offset(in_image, -1) : r;
+		g = onSecondPosition ? in_image : g;
+		b = onSecondPosition ? stream.offset(in_image, 1) : b;
+		
+		r = onThirdPosition ? stream.offset(in_image, -2) : r;
+		g = onThirdPosition ? stream.offset(in_image, -1) : g;
+		b = onThirdPosition ? in_image : b;
+		
+		DFEVar cr = (128 + (0.5 * r.cast(floatType)) - (0.418688 * g.cast(floatType)) - (0.081312 * b.cast(floatType)) + 0.5);
+		
+		DFEVar cb = (128 - (0.168736 * r.cast(floatType)) - (0.331264 * g.cast(floatType)) + (0.5 * b.cast(floatType)) + 0.5);
+		
+		DFEVar diff_cb = key_cb.cast(floatType) - cb;
+		DFEVar diff_cr = key_cr.cast(floatType) - cr;
+		
+		DFEVar diff = KernelMath.sqrt(diff_cb * diff_cb + diff_cr * diff_cr);
+		
+		DFEVar mask = constant.var(floatType,1);
+		mask = (diff < tol_a) ? 0 : mask;
+		mask = (diff < tol_b & diff > tol_a) ? (diff - tol_a) / (tol_b - tol_a) : mask;
+		mask = (diff > tol_b) ? constant.var(floatType, 1) : mask;
+		
+		mask = 1 - mask;
+
+		DFEVar out_image = in_image.cast(floatType) - mask * in_image.cast(floatType) + mask * bg_image.cast(floatType);
+	
+	
+
+		io.output("z", out_image.cast(intType8), intType8);
+	}
+
+}
